@@ -3136,6 +3136,18 @@ func TestRangeQuery(t *testing.T) {
 			End:      time.Unix(120, 0),
 			Interval: 1 * time.Minute,
 		},
+		{
+			Name: "rate breaking histogram bucket monotonicity",
+			Load: `load 60s
+			           histogram{le="1"}     5 13 18 24 28 32
+			           histogram{le="+Inf"}  6 14 19 25 29 33
+			      `,
+			Query:    `rate(histogram{le="1"}[10m]) > ignoring(le) rate(histogram{le="+Inf"}[10m])`,
+			Result:   Matrix{},
+			Start:    time.Unix(0, 0),
+			End:      time.Unix(360, 0),
+			Interval: 30 * time.Second,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.Name, func(t *testing.T) {
