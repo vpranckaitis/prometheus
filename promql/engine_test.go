@@ -3230,6 +3230,36 @@ func TestRangeQuery(t *testing.T) {
 			End:      time.Unix(120, 0),
 			Interval: 1 * time.Minute,
 		},
+		{
+			Name: "samples aligned with step",
+			Load: `load 60s
+							foo 1 10 100`,
+			Query: `sum_over_time(foo[1m])`,
+			Result: Matrix{
+				Series{
+					Floats: []FPoint{{F: 11, T: 60000}, {F: 110, T: 120000}, {F: 100, T: 180000}},
+					Metric: labels.FromStrings(),
+				},
+			},
+			Start:    time.Unix(60, 0),
+			End:      time.Unix(180, 0),
+			Interval: 1 * time.Minute,
+		},
+		{
+			Name: "samples misaligned with step",
+			Load: `load 60s
+							foo 1 10 100`,
+			Query: `sum_over_time(foo[1m])`,
+			Result: Matrix{
+				Series{
+					Floats: []FPoint{{F: 1, T: 59000}, {F: 10, T: 119000}, {F: 100, T: 179000}},
+					Metric: labels.FromStrings(),
+				},
+			},
+			Start:    time.Unix(59, 0),
+			End:      time.Unix(179, 0),
+			Interval: 1 * time.Minute,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.Name, func(t *testing.T) {
