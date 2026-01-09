@@ -211,7 +211,7 @@ func BucketQuantile(q float64, buckets Buckets) (float64, bool, bool) {
 //
 // HistogramQuantile is exported as it may be used by other PromQL engine
 // implementations.
-func HistogramQuantile(q float64, h *histogram.FloatHistogram, metricName string, pos posrange.PositionRange) (float64, annotations.Annotations) {
+func HistogramQuantile(q float64, h *histogram.FloatHistogram, metric labels.Labels, pos posrange.PositionRange) (float64, annotations.Annotations) {
 	if q < 0 {
 		return math.Inf(-1), nil
 	}
@@ -287,7 +287,7 @@ func HistogramQuantile(q float64, h *histogram.FloatHistogram, metricName string
 	// See https://github.com/prometheus/prometheus/issues/16578
 	if count < rank {
 		if math.IsNaN(h.Sum) {
-			return math.NaN(), annos.Add(annotations.NewNativeHistogramQuantileNaNResultInfo(metricName, pos))
+			return math.NaN(), annos.Add(annotations.NewNativeHistogramQuantileNaNResultInfo(getMetricName(metric), pos))
 		}
 		// This should not happen. Either NaNs are in the +Inf bucket (NHCB) and
 		// then count >= rank, or Sum is set to NaN. Might be a precision issue
@@ -316,7 +316,7 @@ func HistogramQuantile(q float64, h *histogram.FloatHistogram, metricName string
 			count += bucket.Count
 		}
 		if count < h.Count {
-			annos.Add(annotations.NewNativeHistogramQuantileNaNSkewInfo(metricName, pos))
+			annos.Add(annotations.NewNativeHistogramQuantileNaNSkewInfo(getMetricName(metric), pos))
 		}
 	}
 
@@ -383,7 +383,7 @@ func HistogramQuantile(q float64, h *histogram.FloatHistogram, metricName string
 //
 // HistogramFraction is exported as it may be used by other PromQL engine
 // implementations.
-func HistogramFraction(lower, upper float64, h *histogram.FloatHistogram, metricName string, pos posrange.PositionRange) (float64, annotations.Annotations) {
+func HistogramFraction(lower, upper float64, h *histogram.FloatHistogram, metric labels.Labels, pos posrange.PositionRange) (float64, annotations.Annotations) {
 	if h.Count == 0 || math.IsNaN(lower) || math.IsNaN(upper) {
 		return math.NaN(), nil
 	}
@@ -498,7 +498,7 @@ func HistogramFraction(lower, upper float64, h *histogram.FloatHistogram, metric
 			count += b.Count
 		}
 		if count < h.Count {
-			annos.Add(annotations.NewNativeHistogramFractionNaNsInfo(metricName, pos))
+			annos.Add(annotations.NewNativeHistogramFractionNaNsInfo(getMetricName(metric), pos))
 		}
 	} else {
 		count = h.Count
