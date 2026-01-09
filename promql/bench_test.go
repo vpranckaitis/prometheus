@@ -448,7 +448,7 @@ func BenchmarkNativeHistograms(b *testing.B) {
 	defer testStorage.Close()
 
 	app := testStorage.Appender(context.TODO())
-	if err := generateNativeHistogramSeries(app, 3000); err != nil {
+	if err := generateNativeHistogramSeries(app, 1000); err != nil {
 		b.Fatal(err)
 	}
 	if err := app.Commit(); err != nil {
@@ -464,32 +464,12 @@ func BenchmarkNativeHistograms(b *testing.B) {
 		query string
 	}{
 		{
-			name:  "sum",
-			query: "sum(native_histogram_series)",
+			name:  "histogram fraction",
+			query: "histogram_fraction(0, +Inf, rate(native_histogram_series[2m]))",
 		},
 		{
-			name:  "sum rate with short rate interval",
-			query: "sum(rate(native_histogram_series[2m]))",
-		},
-		{
-			name:  "sum rate with long rate interval",
-			query: "sum(rate(native_histogram_series[20m]))",
-		},
-		{
-			name:  "histogram_count with short rate interval",
-			query: "histogram_count(sum(rate(native_histogram_series[2m])))",
-		},
-		{
-			name:  "histogram_count with long rate interval",
-			query: "histogram_count(sum(rate(native_histogram_series[20m])))",
-		},
-		{
-			name:  "two-legged histogram_count/sum with short rate interval",
-			query: "histogram_count(sum(rate(native_histogram_series[2m]))) + histogram_sum(sum(rate(native_histogram_series[2m])))",
-		},
-		{
-			name:  "two-legged histogram_count/sum with long rate interval",
-			query: "histogram_count(sum(rate(native_histogram_series[20m]))) + histogram_sum(sum(rate(native_histogram_series[20m])))",
+			name:  "histogram quantile",
+			query: "histogram_quantile(0.99, rate(native_histogram_series[2m]))",
 		},
 	}
 
@@ -502,12 +482,11 @@ func BenchmarkNativeHistograms(b *testing.B) {
 		EnableNegativeOffset: true,
 	}
 
-	b.ResetTimer()
-	b.ReportAllocs()
-
 	for _, tc := range cases {
 		b.Run(tc.name, func(b *testing.B) {
 			ng := promqltest.NewTestEngineWithOpts(b, opts)
+			b.ResetTimer()
+			b.ReportAllocs()
 			for b.Loop() {
 				qry, err := ng.NewRangeQuery(context.Background(), testStorage, nil, tc.query, start, end, step)
 				if err != nil {
@@ -713,9 +692,12 @@ func generateInfoFunctionTestSeries(tb testing.TB, stor *teststorage.TestStorage
 
 func generateNativeHistogramSeries(app storage.Appender, numSeries int) error {
 	commonLabels := []string{labels.MetricName, "native_histogram_series", "foo", "bar"}
+	for i := range 10 {
+		commonLabels = append(commonLabels, fmt.Sprintf("label_%v", i), fmt.Sprintf("value_%v", i))
+	}
 	series := make([][]*histogram.Histogram, numSeries)
 	for i := range series {
-		series[i] = tsdbutil.GenerateTestHistograms(2000)
+		series[i] = tsdbutil.GenerateTestHistograms(120)
 	}
 	higherSchemaHist := &histogram.Histogram{
 		Schema: 3,
@@ -730,7 +712,7 @@ func generateNativeHistogramSeries(app storage.Appender, numSeries int) error {
 	for sid, histograms := range series {
 		seriesLabels := labels.FromStrings(append(commonLabels, "h", strconv.Itoa(sid))...)
 		for i := range histograms {
-			ts := time.Unix(int64(i*15), 0).UnixMilli()
+			ts := time.Unix(int64(i*60), 0).UnixMilli()
 			if i == 0 {
 				// Inject a histogram with a higher schema.
 				if _, err := app.AppendHistogram(0, seriesLabels, ts, higherSchemaHist, nil); err != nil {
