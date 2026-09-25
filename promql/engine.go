@@ -1115,6 +1115,11 @@ func (ng *Engine) populateSeries(ctx context.Context, querier storage.Querier, s
 			}
 			evalRange = 0
 			hints.By, hints.Grouping = extractGroupsFromPath(path)
+			if hints.Func == "absent" || (hints.Func == "group" && hints.By && len(hints.Grouping) == 0) {
+				// To calculate results of `absent()` or `group` without any label grouping, it's enough
+				// to select any series that match the selector. No need to fetch all the matching timeseries.
+				hints.Limit = 1
+			}
 			selectCtx, selectSpan := otel.Tracer("").Start(ctx, "querierSelect", trace.WithAttributes(
 				attribute.String("selector", n.String()),
 				attribute.Int64("start", hints.Start),

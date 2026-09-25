@@ -570,11 +570,20 @@ load 10s
 	data{test="histogram sample",point="c"} {{schema:0 sum:0 count:0}}
 	foo .8
 
+eval instant at 1m group by(test)(data)
+	{test="two samples"} 1
+	{test="three samples"} 1
+	{test="uneven samples"} 1
+    {test="histogram sample"} 1
+
 eval instant at 1m group without(point)(data)
 	{test="two samples"} 1
 	{test="three samples"} 1
 	{test="uneven samples"} 1
     {test="histogram sample"} 1
+
+eval instant at 1m group by()(data)
+	{} 1
 
 eval instant at 1m group(foo)
 	{} 1
